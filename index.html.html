@@ -1,0 +1,1059 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Misi Kata Majmuk: Operasi Selamatkan Bahasa</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;800;900&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Nunito', sans-serif;
+            background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%); /* Fallback */
+            overflow-x: hidden;
+            user-select: none; /* Prevent text selection during gameplay */
+            -webkit-user-select: none;
+        }
+        
+        .theme-bg {
+            background: radial-gradient(circle at top left, #fdf4ff, #e0e7ff, #ecfdf5);
+            min-height: 100vh;
+        }
+
+        .page {
+            display: none;
+            animation: fadeIn 0.5s ease-out;
+        }
+        
+        .page.active {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes pop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        .btn-pop:active {
+            animation: pop 0.2s;
+        }
+
+        .floating {
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+
+        /* Drag and Drop Styles */
+        .draggable {
+            touch-action: none; /* Prevent scrolling when dragging on mobile */
+            cursor: grab;
+        }
+        
+        .draggable:active {
+            cursor: grabbing;
+        }
+        
+        .dragging {
+            opacity: 0.8;
+            transform: scale(1.05);
+            z-index: 50;
+            position: absolute;
+            pointer-events: none; /* Let events pass through to dropzone */
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+
+        .dropzone.drag-over {
+            background-color: rgba(255, 255, 255, 0.5);
+            border: 3px dashed #6366f1; /* Indigo border */
+            transform: scale(1.02);
+            transition: all 0.2s;
+        }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.1);
+        }
+
+        /* Map styling */
+        .map-line {
+            position: absolute;
+            background: #d1d5db;
+            z-index: 0;
+            height: 4px;
+        }
+        .map-node {
+            z-index: 10;
+            transition: all 0.3s;
+        }
+        .map-node.locked {
+            filter: grayscale(100%);
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        /* Confetti for final page */
+        .confetti {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background-color: #f00;
+            animation: fall linear forwards;
+        }
+        @keyframes fall {
+            to { transform: translateY(100vh) rotate(720deg); }
+        }
+    </style>
+</head>
+<body class="theme-bg text-slate-800">
+
+    <header id="global-header" class="hidden fixed top-0 left-0 w-full p-4 flex justify-between items-center z-50 pointer-events-none">
+        <div class="glass-panel px-4 py-2 rounded-full font-bold text-indigo-700 pointer-events-auto shadow-sm flex items-center gap-2">
+            🏆 <span id="global-score">0</span> Mata
+        </div>
+        
+        <!-- Progress Bar (Visible mostly on map/missions) -->
+        <div id="progress-container" class="hidden absolute top-4 left-1/2 transform -translate-x-1/2 w-1/3 min-w-[200px] glass-panel rounded-full h-4 overflow-hidden pointer-events-auto border border-white/50">
+            <div id="progress-bar" class="h-full bg-gradient-to-r from-green-400 to-emerald-500 w-0 transition-all duration-500 rounded-full"></div>
+            <div class="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-slate-700" id="progress-text">0/4 Selesai</div>
+        </div>
+
+        <button onclick="toggleAudio()" class="glass-panel p-2 rounded-full pointer-events-auto hover:bg-white transition" title="Buka/Tutup Bunyi">
+            <span id="audio-icon">🔊</span>
+        </button>
+    </header>
+
+    <main id="game-container" class="relative w-full min-h-screen flex flex-col items-center justify-center overflow-hidden">
+        
+        <!-- PAGE 1: Intro -->
+        <div id="page-1" class="page active flex-col items-center justify-center w-full max-w-3xl p-6 text-center">
+            <div class="floating text-6xl mb-4">🕵️‍♂️🌿</div>
+            <div class="glass-panel p-8 rounded-3xl w-full">
+                <h2 class="text-xl md:text-2xl font-bold text-purple-600 mb-2 uppercase tracking-wider">Misi Kata Majmuk</h2>
+                <h1 class="text-4xl md:text-5xl font-black text-indigo-800 mb-6 leading-tight">Operasi Selamatkan Bahasa</h1>
+                
+                <p class="text-lg md:text-xl text-slate-600 mb-8 max-w-2xl mx-auto leading-relaxed">
+                    Arkib Bahasa telah mengalami gangguan! Kata-kata telah bercampur dan hanya <span class="font-bold text-indigo-600">Ejen Bahasa</span> yang bijak dapat menyusunnya semula.
+                </p>
+                
+                <div class="flex justify-center gap-4 text-3xl mb-8">
+                    <span>📁</span> <span>🔎</span> <span>⭐</span>
+                </div>
+
+                <button onclick="navTo(2)" class="btn-pop bg-gradient-to-r from-pink-500 to-rose-500 text-white text-2xl font-bold py-4 px-10 rounded-full shadow-[0_10px_20px_rgba(225,29,72,0.3)] hover:shadow-[0_15px_25px_rgba(225,29,72,0.4)] transform transition hover:-translate-y-1">
+                    MULA MISI 🚀
+                </button>
+            </div>
+        </div>
+
+        <!-- PAGE 2: Briefing -->
+        <div id="page-2" class="page flex-col items-center justify-center w-full max-w-3xl p-6">
+            <div class="glass-panel p-8 rounded-3xl w-full relative">
+                <button onclick="readAloud('Selamat datang, Ejen. Objektif misi kita ialah: Pertama, Kenal pasti kata majmuk bebas dan mantap. Kedua, Kelaskan kata majmuk mengikut jenis. Ketiga, Gunakan kata majmuk dalam ayat berdasarkan konteks.')" class="absolute top-4 right-4 bg-blue-100 hover:bg-blue-200 text-blue-800 p-3 rounded-full text-xl transition shadow-sm">
+                    🔊
+                </button>
+                
+                <h2 class="text-3xl font-black text-slate-800 border-b-4 border-indigo-400 inline-block mb-8 pb-2">BRIEFING MISI 📁</h2>
+                
+                <div class="space-y-4 mb-10">
+                    <div class="bg-white/80 p-5 rounded-2xl shadow-sm flex items-center gap-4 transform transition hover:scale-105 border-l-4 border-pink-400">
+                        <div class="text-4xl">🔎</div>
+                        <p class="text-lg font-semibold text-slate-700">Kenal pasti kata majmuk bebas dan mantap.</p>
+                    </div>
+                    <div class="bg-white/80 p-5 rounded-2xl shadow-sm flex items-center gap-4 transform transition hover:scale-105 border-l-4 border-purple-400">
+                        <div class="text-4xl">🧩</div>
+                        <p class="text-lg font-semibold text-slate-700">Kelaskan kata majmuk mengikut jenis.</p>
+                    </div>
+                    <div class="bg-white/80 p-5 rounded-2xl shadow-sm flex items-center gap-4 transform transition hover:scale-105 border-l-4 border-blue-400">
+                        <div class="text-4xl">✍️</div>
+                        <p class="text-lg font-semibold text-slate-700">Gunakan kata majmuk dalam ayat berdasarkan konteks.</p>
+                    </div>
+                </div>
+
+                <div class="text-center">
+                    <button onclick="navTo(3)" class="btn-pop bg-indigo-600 text-white text-xl font-bold py-3 px-8 rounded-full shadow-lg hover:bg-indigo-700 transition">
+                        SAYA SUDAH BERSEDIA! 🫡
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- PAGE 3: Map -->
+        <div id="page-3" class="page flex-col items-center justify-center w-full max-w-4xl p-4">
+            <h2 class="text-3xl md:text-4xl font-black text-indigo-900 mb-8 bg-white/50 px-6 py-2 rounded-full backdrop-blur-sm">PETA MISI 🗺️</h2>
+            
+            <div class="relative w-full max-w-2xl aspect-[4/3] md:aspect-[2/1] glass-panel rounded-3xl p-4 flex flex-col md:flex-row justify-between items-center md:items-stretch py-12 md:py-20">
+                
+                <!-- Visual Map Connections (CSS lines drawn via JS or simple flex layout) -->
+                <div class="absolute inset-0 flex items-center justify-center pointer-events-none md:flex-row flex-col">
+                    <div class="w-1 md:w-full h-full md:h-1 bg-slate-300 absolute md:top-1/2 md:-translate-y-1/2 left-1/2 md:left-0 -translate-x-1/2 md:translate-x-0 z-0"></div>
+                </div>
+
+                <!-- Node 1 (Always open initially or after learning) -->
+                <div id="node-1" class="map-node relative z-10 flex flex-col items-center cursor-pointer transform hover:scale-110 group my-2 md:my-0" onclick="startMission(1)">
+                    <div class="w-16 h-16 rounded-full bg-pink-400 text-white flex items-center justify-center text-3xl shadow-[0_0_15px_rgba(244,114,182,0.6)] border-4 border-white">🔎</div>
+                    <span class="mt-2 font-bold text-sm md:text-base text-slate-800 bg-white/80 px-2 py-1 rounded">MISI 1</span>
+                    <div class="absolute -bottom-8 opacity-0 group-hover:opacity-100 transition text-xs font-bold text-pink-600 bg-white px-2 py-1 rounded shadow-sm whitespace-nowrap">Detektif Kata</div>
+                </div>
+
+                <!-- Node 2 -->
+                <div id="node-2" class="map-node locked relative z-10 flex flex-col items-center cursor-pointer transform hover:scale-110 group my-2 md:my-0" onclick="startMission(2)">
+                    <div class="w-16 h-16 rounded-full bg-purple-400 text-white flex items-center justify-center text-3xl shadow-[0_0_15px_rgba(192,132,252,0.6)] border-4 border-white">🧩</div>
+                    <span class="mt-2 font-bold text-sm md:text-base text-slate-800 bg-white/80 px-2 py-1 rounded">MISI 2</span>
+                    <div class="absolute -bottom-8 opacity-0 group-hover:opacity-100 transition text-xs font-bold text-purple-600 bg-white px-2 py-1 rounded shadow-sm whitespace-nowrap">Susun Arkib</div>
+                </div>
+
+                <!-- Node 3 -->
+                <div id="node-3" class="map-node locked relative z-10 flex flex-col items-center cursor-pointer transform hover:scale-110 group my-2 md:my-0" onclick="startMission(3)">
+                    <div class="w-16 h-16 rounded-full bg-blue-400 text-white flex items-center justify-center text-3xl shadow-[0_0_15px_rgba(96,165,250,0.6)] border-4 border-white">✈️</div>
+                    <span class="mt-2 font-bold text-sm md:text-base text-slate-800 bg-white/80 px-2 py-1 rounded">MISI 3</span>
+                    <div class="absolute -bottom-8 opacity-0 group-hover:opacity-100 transition text-xs font-bold text-blue-600 bg-white px-2 py-1 rounded shadow-sm whitespace-nowrap">Pilih Tepat</div>
+                </div>
+
+                <!-- Node Boss -->
+                <div id="node-4" class="map-node locked relative z-10 flex flex-col items-center cursor-pointer transform hover:scale-110 group my-2 md:my-0" onclick="startMission(4)">
+                    <div class="w-20 h-20 rounded-full bg-yellow-400 text-white flex items-center justify-center text-4xl shadow-[0_0_20px_rgba(250,204,21,0.8)] border-4 border-red-400">🔥</div>
+                    <span class="mt-2 font-bold text-sm md:text-base text-slate-800 bg-white/80 px-2 py-1 rounded">BOSS</span>
+                    <div class="absolute -bottom-8 opacity-0 group-hover:opacity-100 transition text-xs font-bold text-red-600 bg-white px-2 py-1 rounded shadow-sm whitespace-nowrap">Cabaran Boss</div>
+                </div>
+            </div>
+            
+            <!-- Button to Learn page -->
+            <button onclick="navTo(4)" class="mt-8 text-indigo-600 font-bold underline hover:text-indigo-800 flex items-center gap-2">
+                <span>💡 Ulang Kaji Nota</span>
+            </button>
+        </div>
+
+        <!-- PAGE 4: Learn -->
+        <div id="page-4" class="page flex-col items-center justify-start w-full max-w-4xl p-4 pt-16 h-screen overflow-y-auto pb-20">
+            <h2 class="text-3xl font-black text-slate-800 mb-6 text-center">KENALI KATA MAJMUK 📖</h2>
+            <p class="text-lg text-slate-600 mb-8 text-center max-w-xl">
+                Kata majmuk ialah proses merangkaikan dua kata dasar atau lebih dan bentuk yang terhasil membawa makna yang khusus.
+            </p>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 w-full">
+                <!-- Bebas -->
+                <div class="glass-panel p-6 rounded-3xl border-t-8 border-green-400 hover:shadow-xl transition">
+                    <h3 class="text-2xl font-bold text-green-600 mb-2 flex items-center gap-2">🟢 KATA MAJMUK BEBAS</h3>
+                    <p class="font-semibold text-slate-700 bg-green-50 p-2 rounded mb-4">"Ditulis secara terpisah."</p>
+                    <div class="grid grid-cols-2 gap-3">
+                        <button onclick="playWordExample(this, 'kapal terbang')" class="bg-white border-2 border-green-200 p-3 rounded-xl hover:bg-green-100 hover:scale-105 transition font-bold text-slate-700 text-left flex justify-between">kapal terbang <span>🔊</span></button>
+                        <button onclick="playWordExample(this, 'kereta api')" class="bg-white border-2 border-green-200 p-3 rounded-xl hover:bg-green-100 hover:scale-105 transition font-bold text-slate-700 text-left flex justify-between">kereta api <span>🔊</span></button>
+                        <button onclick="playWordExample(this, 'alat tulis')" class="bg-white border-2 border-green-200 p-3 rounded-xl hover:bg-green-100 hover:scale-105 transition font-bold text-slate-700 text-left flex justify-between">alat tulis <span>🔊</span></button>
+                        <button onclick="playWordExample(this, 'tengah hari')" class="bg-white border-2 border-green-200 p-3 rounded-xl hover:bg-green-100 hover:scale-105 transition font-bold text-slate-700 text-left flex justify-between">tengah hari <span>🔊</span></button>
+                    </div>
+                </div>
+
+                <!-- Mantap -->
+                <div class="glass-panel p-6 rounded-3xl border-t-8 border-blue-500 hover:shadow-xl transition">
+                    <h3 class="text-2xl font-bold text-blue-600 mb-2 flex items-center gap-2">🔵 KATA MAJMUK MANTAP</h3>
+                    <p class="font-semibold text-slate-700 bg-blue-50 p-2 rounded mb-4">"Ditulis secara bercantum."</p>
+                    <div class="grid grid-cols-2 gap-3">
+                        <button onclick="playWordExample(this, 'kerjasama')" class="bg-white border-2 border-blue-200 p-3 rounded-xl hover:bg-blue-100 hover:scale-105 transition font-bold text-slate-700 text-left flex justify-between">kerjasama <span>🔊</span></button>
+                        <button onclick="playWordExample(this, 'tanggungjawab')" class="bg-white border-2 border-blue-200 p-3 rounded-xl hover:bg-blue-100 hover:scale-105 transition font-bold text-slate-700 text-left flex justify-between">tanggungjawab <span>🔊</span></button>
+                        <button onclick="playWordExample(this, 'tandatangan')" class="bg-white border-2 border-blue-200 p-3 rounded-xl hover:bg-blue-100 hover:scale-105 transition font-bold text-slate-700 text-left flex justify-between">tandatangan <span>🔊</span></button>
+                        <button onclick="playWordExample(this, 'antarabangsa')" class="bg-white border-2 border-blue-200 p-3 rounded-xl hover:bg-blue-100 hover:scale-105 transition font-bold text-slate-700 text-left flex justify-between">antarabangsa <span>🔊</span></button>
+                    </div>
+                </div>
+            </div>
+
+            <button onclick="navTo(3)" class="mt-10 btn-pop bg-slate-800 text-white text-lg font-bold py-3 px-8 rounded-full shadow-lg hover:bg-slate-700 transition">
+                SAYA SUDAH FAHAM →
+            </button>
+        </div>
+
+        <!-- PAGE 5: Mission 1 (Quiz) -->
+        <div id="page-5" class="page flex-col items-center justify-center w-full max-w-2xl p-4 pt-12">
+            <h2 class="text-2xl font-black text-pink-600 mb-2 flex items-center gap-2">🔎 MISI 1 — DETEKTIF KATA</h2>
+            <p class="text-slate-600 mb-8 font-semibold">Tentukan jenis kata majmuk bagi perkataan di bawah.</p>
+            
+            <div class="glass-panel p-8 rounded-3xl w-full text-center relative overflow-hidden">
+                <div id="m1-progress" class="absolute top-0 left-0 h-1 bg-pink-400 transition-all duration-300"></div>
+                
+                <p class="text-lg text-slate-500 mb-4">Perkataan <span id="m1-qnum">1</span>/6:</p>
+                <div id="m1-word" class="text-4xl md:text-5xl font-black text-indigo-900 mb-10 tracking-wide drop-shadow-sm">
+                    <!-- Word injected here -->
+                </div>
+
+                <div class="flex flex-col md:flex-row gap-4 justify-center">
+                    <button onclick="checkMisi1('bebas')" class="btn-pop flex-1 bg-green-500 hover:bg-green-600 text-white text-xl font-bold py-4 px-6 rounded-2xl shadow-md transition border-b-4 border-green-700">
+                        🟢 BEBAS<br><span class="text-sm font-normal">(Terpisah)</span>
+                    </button>
+                    <button onclick="checkMisi1('mantap')" class="btn-pop flex-1 bg-blue-500 hover:bg-blue-600 text-white text-xl font-bold py-4 px-6 rounded-2xl shadow-md transition border-b-4 border-blue-700">
+                        🔵 MANTAP<br><span class="text-sm font-normal">(Bercantum)</span>
+                    </button>
+                </div>
+            </div>
+            
+            <div id="m1-feedback" class="mt-6 h-16 flex items-center justify-center w-full rounded-2xl font-bold text-lg opacity-0 transition-opacity"></div>
+        </div>
+
+        <!-- PAGE 6: Mission 2 (Drag & Drop) -->
+        <div id="page-6" class="page flex-col items-center justify-start w-full max-w-4xl p-4 pt-16 h-screen overflow-hidden">
+            <div class="flex justify-between items-center w-full mb-4">
+                <h2 class="text-2xl font-black text-purple-600 flex items-center gap-2">🧩 MISI 2 — SUSUN ARKIB</h2>
+                <button onclick="readAloud('Seret kad perkataan dan masukkan ke dalam fail yang betul.')" class="bg-white rounded-full p-2 text-xl shadow-sm">🔊</button>
+            </div>
+            
+            <p class="text-slate-600 mb-4 font-semibold text-center text-sm md:text-base">Tarik / Klik perkataan ke dalam fail yang betul.</p>
+
+            <!-- Dropzones -->
+            <div class="flex flex-row w-full gap-2 md:gap-4 mb-4 h-1/3 min-h-[150px]">
+                <div id="drop-bebas" class="dropzone flex-1 glass-panel border-4 border-dashed border-green-300 rounded-2xl p-2 md:p-4 flex flex-col items-center transition relative overflow-y-auto">
+                    <h3 class="font-bold text-green-700 mb-2 sticky top-0 bg-white/80 w-full text-center rounded z-10 text-sm md:text-base">🟢 BEBAS</h3>
+                    <div class="drop-content w-full flex flex-col gap-2 items-center" data-type="bebas"></div>
+                </div>
+                
+                <div id="drop-mantap" class="dropzone flex-1 glass-panel border-4 border-dashed border-blue-300 rounded-2xl p-2 md:p-4 flex flex-col items-center transition relative overflow-y-auto">
+                    <h3 class="font-bold text-blue-700 mb-2 sticky top-0 bg-white/80 w-full text-center rounded z-10 text-sm md:text-base">🔵 MANTAP</h3>
+                    <div class="drop-content w-full flex flex-col gap-2 items-center" data-type="mantap"></div>
+                </div>
+            </div>
+
+            <!-- Draggable Items Container -->
+            <div class="w-full glass-panel rounded-2xl p-4 min-h-[120px] relative">
+                <div class="text-xs font-bold text-slate-400 absolute top-1 left-2">PERKATAAN:</div>
+                <div id="drag-container" class="flex flex-wrap justify-center gap-2 md:gap-3 mt-4">
+                    <!-- Cards generated via JS -->
+                </div>
+            </div>
+            
+            <div id="m2-msg" class="mt-4 font-bold text-lg text-center hidden"></div>
+            
+            <button id="btn-m2-next" onclick="completeMission(2)" class="hidden mt-4 btn-pop bg-purple-600 text-white font-bold py-2 px-6 rounded-full shadow-lg">Seterusnya 🗺️</button>
+        </div>
+
+        <!-- PAGE 7: Mission 3 (Context) -->
+        <div id="page-7" class="page flex-col items-center justify-center w-full max-w-3xl p-4 pt-12">
+            <h2 class="text-2xl font-black text-blue-600 mb-2 flex items-center gap-2">✈️ MISI 3 — PILIH YANG TEPAT</h2>
+            
+            <div class="glass-panel p-6 md:p-8 rounded-3xl w-full relative">
+                 <div id="m3-progress" class="absolute top-0 left-0 h-1 bg-blue-400 transition-all duration-300 rounded-t-3xl"></div>
+                 <div class="flex justify-between items-center mb-6">
+                     <span class="bg-blue-100 text-blue-800 font-bold px-3 py-1 rounded-full text-sm">Soalan <span id="m3-qnum">1</span>/5</span>
+                     <button id="m3-audio-btn" class="bg-slate-100 hover:bg-slate-200 rounded-full p-2 text-lg">🔊</button>
+                 </div>
+                 
+                 <p id="m3-question" class="text-xl md:text-2xl font-bold text-slate-700 mb-8 leading-relaxed">
+                     <!-- Question -->
+                 </p>
+                 
+                 <div id="m3-options" class="flex flex-col gap-3">
+                     <!-- Options injected here -->
+                 </div>
+            </div>
+            
+            <div id="m3-feedback" class="mt-4 text-center font-bold text-xl min-h-[30px]"></div>
+        </div>
+
+        <!-- WAIT, Prompt specifies: Page 3 Peta has 4 checkpoints. Page 5,6,7 are Misi 1,2,3. Page 8 is Misi 4: Cipta Ayat. Page 9 is Boss. Okay, I need 4 normal missions + boss? 
+             Prompt map: Misi 1, Misi 2, Misi 3, Cabaran Boss. That's 4 nodes. 
+             Prompt Page 8: Misi 4 - Cipta Ayat. 
+             Let's integrate Page 8 into the flow before the Boss. Map needs 4 nodes. I'll make the map have M1, M2, M3, M4 (Boss). 
+             Wait, Prompt says: "PETA MISI DENGAN 4 CHECKPOINT: MISI 1... MISI 2... MISI 3... CABARAN BOSS". 
+             Then it says "PAGE 8 - MISI 4: CIPTA AYAT". 
+             There is a slight contradiction. I will add a 4th node for "Bina Ayat" and a 5th node for Boss, OR combine Boss and Cipta Ayat. 
+             Let's stick strictly to 10 Pages. I'll make the map have 4 nodes: Misi 1, Misi 2, Misi 3, and Boss (Page 9). I will make Page 8 a mandatory step *before* Boss, accessed after Misi 3. -->
+             
+        <!-- PAGE 8: Misi 4 (Create Sentence) - Accessible after Misi 3 -->
+        <div id="page-8" class="page flex-col items-center justify-center w-full max-w-3xl p-4 pt-12">
+            <h2 class="text-2xl font-black text-indigo-600 mb-2 flex items-center gap-2">✍️ MISI 4 — CIPTA AYAT</h2>
+            <p class="text-slate-600 mb-6 font-semibold">Pilih satu kata majmuk dan bina ayat yang sesuai.</p>
+            
+            <div class="glass-panel p-6 rounded-3xl w-full">
+                <div class="flex flex-wrap gap-2 justify-center mb-6" id="m4-word-select">
+                    <button onclick="selectM4Word('kerjasama', this)" class="m4-btn bg-white border-2 border-slate-200 px-4 py-2 rounded-xl font-bold hover:bg-indigo-50 hover:border-indigo-300 transition">🤝 kerjasama</button>
+                    <button onclick="selectM4Word('tanggungjawab', this)" class="m4-btn bg-white border-2 border-slate-200 px-4 py-2 rounded-xl font-bold hover:bg-indigo-50 hover:border-indigo-300 transition">❤️ tanggungjawab</button>
+                    <button onclick="selectM4Word('alat tulis', this)" class="m4-btn bg-white border-2 border-slate-200 px-4 py-2 rounded-xl font-bold hover:bg-indigo-50 hover:border-indigo-300 transition">✏️ alat tulis</button>
+                    <button onclick="selectM4Word('kapal terbang', this)" class="m4-btn bg-white border-2 border-slate-200 px-4 py-2 rounded-xl font-bold hover:bg-indigo-50 hover:border-indigo-300 transition">✈️ kapal terbang</button>
+                </div>
+                
+                <div id="m4-input-area" class="hidden flex-col gap-4">
+                    <p class="font-bold text-slate-700">Kata majmuk pilihan: <span id="m4-selected-word" class="text-indigo-600 uppercase"></span></p>
+                    <textarea id="m4-textarea" rows="3" class="w-full p-4 border-2 border-indigo-200 rounded-xl focus:outline-none focus:border-indigo-500 text-lg resize-none" placeholder="Taip ayat kamu di sini..."></textarea>
+                    
+                    <button onclick="checkMisi4()" class="btn-pop bg-indigo-600 text-white font-bold py-3 px-6 rounded-xl hover:bg-indigo-700 self-center">SEMAK JAWAPAN</button>
+                </div>
+                
+                <div id="m4-feedback" class="mt-4 text-center font-bold hidden"></div>
+            </div>
+            <button id="btn-m4-next" onclick="navTo(9)" class="hidden mt-6 btn-pop bg-red-500 text-white font-bold py-3 px-8 rounded-full shadow-lg">Teruskan ke Cabaran Boss 🔥</button>
+        </div>
+
+        <!-- PAGE 9: Boss Challenge -->
+        <div id="page-9" class="page flex-col items-center justify-start w-full max-w-4xl p-4 pt-12 h-screen overflow-y-auto">
+            <h2 class="text-3xl md:text-4xl font-black text-red-600 mb-2 flex items-center justify-center gap-2 uppercase text-center">🔥 Cabaran Boss <br class="md:hidden"> Selamatkan Sekolah!</h2>
+            
+            <div class="glass-panel border-4 border-red-300 p-6 md:p-8 rounded-3xl w-full bg-white/90">
+                <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded mb-6">
+                    <p class="text-slate-800 font-semibold italic">"Sekolah kamu akan mengadakan Kempen Sekolah Bersih. Guru meminta kamu menghasilkan slogan untuk kempen tersebut."</p>
+                </div>
+                
+                <p class="font-bold text-slate-700 mb-3">1. Pilih DUA kata majmuk yang sesuai:</p>
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6" id="boss-words">
+                    <!-- Labels act as buttons for custom checkbox styling -->
+                    <label class="boss-word cursor-pointer bg-white border-2 border-slate-200 rounded-xl p-3 flex items-center gap-2 hover:bg-red-50 transition">
+                        <input type="checkbox" value="kapal terbang" class="w-5 h-5 accent-red-500" onchange="limitBossSelection(this)"> kapal terbang
+                    </label>
+                    <label class="boss-word cursor-pointer bg-white border-2 border-slate-200 rounded-xl p-3 flex items-center gap-2 hover:bg-red-50 transition">
+                        <input type="checkbox" value="kerjasama" class="w-5 h-5 accent-red-500" onchange="limitBossSelection(this)"> kerjasama
+                    </label>
+                    <label class="boss-word cursor-pointer bg-white border-2 border-slate-200 rounded-xl p-3 flex items-center gap-2 hover:bg-red-50 transition">
+                        <input type="checkbox" value="kereta api" class="w-5 h-5 accent-red-500" onchange="limitBossSelection(this)"> kereta api
+                    </label>
+                    <label class="boss-word cursor-pointer bg-white border-2 border-slate-200 rounded-xl p-3 flex items-center gap-2 hover:bg-red-50 transition">
+                        <input type="checkbox" value="tanggungjawab" class="w-5 h-5 accent-red-500" onchange="limitBossSelection(this)"> tanggungjawab
+                    </label>
+                    <label class="boss-word cursor-pointer bg-white border-2 border-slate-200 rounded-xl p-3 flex items-center gap-2 hover:bg-red-50 transition">
+                        <input type="checkbox" value="antarabangsa" class="w-5 h-5 accent-red-500" onchange="limitBossSelection(this)"> antarabangsa
+                    </label>
+                    <label class="boss-word cursor-pointer bg-white border-2 border-slate-200 rounded-xl p-3 flex items-center gap-2 hover:bg-red-50 transition">
+                        <input type="checkbox" value="tengah hari" class="w-5 h-5 accent-red-500" onchange="limitBossSelection(this)"> tengah hari
+                    </label>
+                </div>
+                
+                <p class="font-bold text-slate-700 mb-2">2. Bina slogan menggunakan kata tersebut:</p>
+                <input type="text" id="boss-slogan" class="w-full p-3 border-2 border-red-200 rounded-xl mb-6 focus:outline-none focus:border-red-500 font-bold text-lg" placeholder="Cth: Kerjasama Kita, Sekolah Bersih!">
+                
+                <p class="font-bold text-slate-700 mb-2 flex items-center gap-2">3. Soalan KBAT 🧠 <span class="text-sm font-normal text-slate-500">Mengapa kamu memilih kata tersebut?</span></p>
+                <textarea id="boss-reason" rows="2" class="w-full p-3 border-2 border-red-200 rounded-xl mb-6 focus:outline-none focus:border-red-500" placeholder="Saya memilih kata ini kerana..."></textarea>
+                
+                <div class="flex flex-col items-center gap-4">
+                    <button onclick="checkBoss()" class="btn-pop bg-red-600 text-white text-xl font-bold py-4 px-10 rounded-full shadow-lg hover:bg-red-700 w-full md:w-auto">HANTAR MISI BOSS</button>
+                    <div id="boss-feedback" class="font-bold text-center hidden w-full p-4 rounded-xl"></div>
+                </div>
+            </div>
+             <button id="btn-boss-next" onclick="navTo(10)" class="hidden mt-6 btn-pop bg-slate-800 text-white font-bold py-3 px-8 rounded-full shadow-lg mb-10">Lihat Keputusan Penuh 🏆</button>
+        </div>
+
+        <!-- PAGE 10: Results -->
+        <div id="page-10" class="page flex-col items-center justify-start w-full max-w-3xl p-4 pt-12 h-screen overflow-y-auto">
+            <h2 class="text-4xl font-black text-slate-800 mb-6 flex items-center gap-2">🏆 MISI SELESAI!</h2>
+            
+            <div class="glass-panel p-8 rounded-3xl w-full text-center relative overflow-hidden bg-white/95">
+                <!-- Badges -->
+                <div id="result-badge" class="text-7xl mb-4 floating">🏅</div>
+                
+                <h3 id="result-title" class="text-2xl font-bold text-indigo-700 mb-2"></h3>
+                
+                <div class="bg-slate-100 rounded-2xl p-6 mb-6 inline-block shadow-inner border-2 border-slate-200">
+                    <p class="text-slate-500 font-bold mb-1 uppercase tracking-wider">Skor Keseluruhan</p>
+                    <p class="text-6xl font-black text-slate-800"><span id="final-score">0</span></p>
+                </div>
+                
+                <!-- Reflection Checklist -->
+                <div class="bg-indigo-50 p-6 rounded-2xl text-left mb-8 border border-indigo-100">
+                    <h4 class="font-bold text-indigo-900 mb-4 text-lg">📝 Refleksi Kendiri: Hari ini saya sudah boleh...</h4>
+                    <ul class="space-y-3 text-slate-700 font-semibold">
+                        <li class="flex items-center gap-3"><input type="checkbox" class="w-5 h-5 accent-indigo-600 rounded"> Mengenal pasti kata majmuk</li>
+                        <li class="flex items-center gap-3"><input type="checkbox" class="w-5 h-5 accent-indigo-600 rounded"> Membezakan kata majmuk bebas dan mantap</li>
+                        <li class="flex items-center gap-3"><input type="checkbox" class="w-5 h-5 accent-indigo-600 rounded"> Mengelaskan kata majmuk</li>
+                        <li class="flex items-center gap-3"><input type="checkbox" class="w-5 h-5 accent-indigo-600 rounded"> Menggunakan kata majmuk dalam ayat</li>
+                    </ul>
+                </div>
+                
+                <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                    <button id="btn-retry" onclick="resetGame(4)" class="btn-pop bg-orange-400 hover:bg-orange-500 text-white font-bold py-3 px-6 rounded-xl shadow-md transition">ULANG KAJI 💡</button>
+                    <button onclick="resetGame(1)" class="btn-pop bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-xl shadow-md transition">MAIN SEMULA 🔄</button>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        // --- GAME DATA & STATE ---
+        const gameState = {
+            currentPage: 1,
+            score: 0,
+            missionsUnlocked: [true, false, false, false], // M1, M2, M3, Boss (M4 is bundled after M3)
+            audioEnabled: true,
+            m1: { index: 0, score: 0 },
+            m3: { index: 0, score: 0 },
+            m4Word: ''
+        };
+
+        const dataM1 = [
+            { word: "kapal terbang", type: "bebas" },
+            { word: "kerjasama", type: "mantap" },
+            { word: "alat tulis", type: "bebas" },
+            { word: "tandatangan", type: "mantap" },
+            { word: "kereta api", type: "bebas" },
+            { word: "tanggungjawab", type: "mantap" }
+        ];
+
+        const dataM2 = [
+            { id: "w1", word: "kapal terbang", type: "bebas" },
+            { id: "w2", word: "kerjasama", type: "mantap" },
+            { id: "w3", word: "kereta api", type: "bebas" },
+            { id: "w4", word: "tanggungjawab", type: "mantap" },
+            { id: "w5", word: "alat tulis", type: "bebas" },
+            { id: "w6", word: "tandatangan", type: "mantap" },
+            { id: "w7", word: "antarabangsa", type: "mantap" },
+            { id: "w8", word: "tengah hari", type: "bebas" }
+        ];
+
+        const dataM3 = [
+            {
+                q: "Aiman dan keluarganya ingin pergi ke Sabah. Mereka menaiki _________ dari Kuala Lumpur.",
+                options: ["kerjasama", "kapal terbang", "tanggungjawab"],
+                answer: 1 // index of kapal terbang
+            },
+            {
+                q: "Murid perlu menjaga kebersihan kelas sebagai _________ bersama.",
+                options: ["kereta api", "alat tulis", "tanggungjawab"],
+                answer: 2
+            },
+            {
+                q: "Semua murid perlu memberikan _________ untuk menjayakan gotong-royong.",
+                options: ["kerjasama", "kapal terbang", "tengah hari"],
+                answer: 0
+            },
+            {
+                q: "Cikgu menyuruh ketua kelas memungut _________ murid untuk borang lawatan.",
+                options: ["tandatangan", "kereta api", "antarabangsa"],
+                answer: 0
+            },
+            {
+                q: "Ali membeli sebatang pensel di kedai _________ Koperasi Sekolah.",
+                options: ["tanggungjawab", "alat tulis", "kapal terbang"],
+                answer: 1
+            }
+        ];
+
+        // --- AUDIO & TTS UTILS ---
+        let audioCtx;
+        function initAudio() {
+            if (!audioCtx) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                audioCtx = new AudioContext();
+            }
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+        }
+
+        function playSound(type) {
+            if (!gameState.audioEnabled) return;
+            initAudio();
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            const now = audioCtx.currentTime;
+            if (type === 'correct') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(600, now);
+                osc.frequency.exponentialRampToValueAtTime(1200, now + 0.1);
+                gainNode.gain.setValueAtTime(0.3, now);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+                osc.start(now);
+                osc.stop(now + 0.5);
+            } else if (type === 'wrong') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(300, now);
+                osc.frequency.exponentialRampToValueAtTime(150, now + 0.2);
+                gainNode.gain.setValueAtTime(0.3, now);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+                osc.start(now);
+                osc.stop(now + 0.4);
+            } else if (type === 'win') {
+                // simple arpeggio
+                [440, 554, 659, 880].forEach((freq, i) => {
+                    const o = audioCtx.createOscillator();
+                    const g = audioCtx.createGain();
+                    o.connect(g); g.connect(audioCtx.destination);
+                    o.type = 'triangle';
+                    o.frequency.value = freq;
+                    g.gain.setValueAtTime(0, now + i*0.1);
+                    g.gain.linearRampToValueAtTime(0.2, now + i*0.1 + 0.05);
+                    g.gain.linearRampToValueAtTime(0, now + i*0.1 + 0.3);
+                    o.start(now + i*0.1);
+                    o.stop(now + i*0.1 + 0.3);
+                });
+            }
+        }
+
+        function readAloud(text) {
+            if (!gameState.audioEnabled || !('speechSynthesis' in window)) return;
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'ms-MY';
+            utterance.rate = 0.9;
+            window.speechSynthesis.speak(utterance);
+        }
+
+        function playWordExample(btn, word) {
+            readAloud(word);
+            // Visual feedback
+            btn.classList.add('bg-yellow-100', 'scale-105');
+            setTimeout(() => btn.classList.remove('bg-yellow-100', 'scale-105'), 500);
+        }
+
+        function toggleAudio() {
+            gameState.audioEnabled = !gameState.audioEnabled;
+            document.getElementById('audio-icon').textContent = gameState.audioEnabled ? '🔊' : '🔇';
+            if(!gameState.audioEnabled) window.speechSynthesis.cancel();
+        }
+
+        // --- NAVIGATION ---
+        function navTo(pageNum) {
+            initAudio(); // User interaction unlocks audio
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById(`page-${pageNum}`).classList.add('active');
+            gameState.currentPage = pageNum;
+            window.scrollTo(0,0);
+
+            // Global UI visibility
+            const header = document.getElementById('global-header');
+            if (pageNum >= 3 && pageNum < 10) {
+                header.classList.remove('hidden');
+                updateProgressBar();
+            } else {
+                header.classList.add('hidden');
+            }
+
+            // Page specific initializers
+            if (pageNum === 3) initMap();
+            if (pageNum === 5) initMisi1();
+            if (pageNum === 6) initMisi2();
+            if (pageNum === 7) initMisi3();
+            if (pageNum === 10) showResults();
+        }
+
+        function addScore(points) {
+            gameState.score += points;
+            const scoreEl = document.getElementById('global-score');
+            scoreEl.textContent = gameState.score;
+            scoreEl.parentElement.classList.add('scale-125', 'bg-yellow-200');
+            setTimeout(() => scoreEl.parentElement.classList.remove('scale-125', 'bg-yellow-200'), 300);
+        }
+
+        function updateProgressBar() {
+            const completed = gameState.missionsUnlocked.filter(Boolean).length - 1; // Unlocked implies prev completed
+            let actualCompleted = completed < 0 ? 0 : completed;
+            if (gameState.currentPage === 10) actualCompleted = 4; // all done
+            
+            const pct = (actualCompleted / 4) * 100;
+            document.getElementById('progress-container').classList.remove('hidden');
+            document.getElementById('progress-bar').style.width = `${pct}%`;
+            document.getElementById('progress-text').textContent = `Misi ${actualCompleted}/4 Selesai`;
+        }
+
+        function completeMission(missionIndex) { // 1, 2, 3
+            if(missionIndex < 4) {
+                gameState.missionsUnlocked[missionIndex] = true;
+                playSound('win');
+                navTo(3); // Go back to map
+            }
+        }
+
+        function startMission(missionNodeIndex) {
+            if (!gameState.missionsUnlocked[missionNodeIndex - 1]) return; // Locked
+            
+            if(missionNodeIndex === 1) navTo(5);
+            else if(missionNodeIndex === 2) navTo(6);
+            else if(missionNodeIndex === 3) navTo(7);
+            else if(missionNodeIndex === 4) navTo(8); // Boss path: Misi 4 -> Boss
+        }
+
+        function initMap() {
+            for(let i=1; i<=4; i++) {
+                const node = document.getElementById(`node-${i}`);
+                if(gameState.missionsUnlocked[i-1]) {
+                    node.classList.remove('locked');
+                }
+            }
+        }
+
+        // --- MISI 1 (Detektif) ---
+        function initMisi1() {
+            gameState.m1.index = 0;
+            gameState.m1.score = 0;
+            renderMisi1();
+        }
+
+        function renderMisi1() {
+            const data = dataM1[gameState.m1.index];
+            document.getElementById('m1-word').textContent = data.word;
+            document.getElementById('m1-qnum').textContent = gameState.m1.index + 1;
+            document.getElementById('m1-progress').style.width = `${((gameState.m1.index)/dataM1.length)*100}%`;
+            
+            const fb = document.getElementById('m1-feedback');
+            fb.className = 'mt-6 h-16 flex items-center justify-center w-full rounded-2xl font-bold text-lg opacity-0 transition-opacity';
+            fb.textContent = '';
+            
+            readAloud(data.word + " ialah?");
+        }
+
+        function checkMisi1(selectedType) {
+            const data = dataM1[gameState.m1.index];
+            const fb = document.getElementById('m1-feedback');
+            fb.style.opacity = '1';
+
+            if (selectedType === data.type) {
+                playSound('correct');
+                addScore(10);
+                fb.textContent = "⭐ TEPAT! Anda hebat.";
+                fb.classList.add('bg-green-100', 'text-green-700');
+                
+                setTimeout(() => {
+                    gameState.m1.index++;
+                    if (gameState.m1.index < dataM1.length) {
+                        renderMisi1();
+                    } else {
+                        fb.textContent = "🎉 Misi 1 Selesai!";
+                        setTimeout(() => completeMission(1), 1500);
+                    }
+                }, 1500);
+            } else {
+                playSound('wrong');
+                fb.textContent = "❌ Kurang tepat. Cuba perhatikan cara perkataan ini ditulis (rapat atau jarak?).";
+                fb.classList.remove('bg-green-100', 'text-green-700');
+                fb.classList.add('bg-red-100', 'text-red-700');
+                setTimeout(() => {
+                    fb.style.opacity = '0';
+                    fb.classList.remove('bg-red-100', 'text-red-700');
+                }, 3000);
+            }
+        }
+
+        // --- MISI 2 (Susun Arkib) ---
+        // Using a Tap-to-select, Tap-to-drop approach which is 100% reliable on all mobile devices inside a single file
+        let selectedDragItem = null;
+        let m2CorrectCount = 0;
+
+        function initMisi2() {
+            m2CorrectCount = 0;
+            selectedDragItem = null;
+            document.getElementById('m2-msg').classList.add('hidden');
+            document.getElementById('btn-m2-next').classList.add('hidden');
+            
+            const container = document.getElementById('drag-container');
+            container.innerHTML = '';
+            document.querySelector('#drop-bebas .drop-content').innerHTML = '';
+            document.querySelector('#drop-mantap .drop-content').innerHTML = '';
+
+            // Shuffle data
+            const shuffled = [...dataM2].sort(() => Math.random() - 0.5);
+            
+            shuffled.forEach(item => {
+                const el = document.createElement('div');
+                el.className = 'draggable bg-white border-2 border-slate-300 rounded-xl px-3 py-2 font-bold text-slate-700 cursor-pointer shadow-sm hover:border-purple-400 transition text-sm md:text-base';
+                el.textContent = item.word;
+                el.dataset.type = item.type;
+                el.dataset.id = item.id;
+                el.onclick = () => selectItemForDrop(el);
+                container.appendChild(el);
+            });
+
+            // Setup Dropzones for tap
+            document.getElementById('drop-bebas').onclick = () => attemptDrop('bebas');
+            document.getElementById('drop-mantap').onclick = () => attemptDrop('mantap');
+        }
+
+        function selectItemForDrop(el) {
+            // Deselect previous
+            document.querySelectorAll('.draggable').forEach(d => d.classList.remove('ring-4', 'ring-purple-400', 'scale-110'));
+            
+            selectedDragItem = el;
+            el.classList.add('ring-4', 'ring-purple-400', 'scale-110');
+            playSound('correct'); // just a tick sound actually, but correct sound works
+        }
+
+        function attemptDrop(targetType) {
+            if (!selectedDragItem) return;
+
+            const itemType = selectedDragItem.dataset.type;
+            const msg = document.getElementById('m2-msg');
+            msg.classList.remove('hidden');
+
+            if (itemType === targetType) {
+                // Correct
+                playSound('correct');
+                addScore(10);
+                
+                selectedDragItem.classList.remove('ring-4', 'ring-purple-400', 'scale-110', 'draggable');
+                selectedDragItem.classList.add('border-green-400', 'bg-green-50');
+                selectedDragItem.onclick = null; // disable further clicks
+                
+                document.querySelector(`#drop-${targetType} .drop-content`).appendChild(selectedDragItem);
+                selectedDragItem = null;
+                m2CorrectCount++;
+                
+                msg.textContent = "⭐ Betul!";
+                msg.className = "mt-4 font-bold text-lg text-center text-green-600";
+
+                if(m2CorrectCount === dataM2.length) {
+                    msg.textContent = "🎉 ARKIB BERJAYA DISUSUN!";
+                    document.getElementById('btn-m2-next').classList.remove('hidden');
+                    playSound('win');
+                }
+            } else {
+                // Wrong
+                playSound('wrong');
+                msg.textContent = "❌ Salah fail! Cuba ingat: Bebas (terpisah), Mantap (bercantum).";
+                msg.className = "mt-4 font-bold text-lg text-center text-red-600";
+                
+                // Shake animation
+                selectedDragItem.classList.add('animate-pulse');
+                setTimeout(() => selectedDragItem.classList.remove('animate-pulse'), 500);
+            }
+            
+            setTimeout(() => {
+                if(m2CorrectCount !== dataM2.length) msg.classList.add('hidden');
+            }, 2000);
+        }
+
+        // --- MISI 3 (Konteks) ---
+        function initMisi3() {
+            gameState.m3.index = 0;
+            renderMisi3();
+        }
+
+        function renderMisi3() {
+            const data = dataM3[gameState.m3.index];
+            document.getElementById('m3-qnum').textContent = gameState.m3.index + 1;
+            document.getElementById('m3-progress').style.width = `${((gameState.m3.index)/dataM3.length)*100}%`;
+            
+            document.getElementById('m3-question').innerHTML = data.q.replace('_________', '<span class="inline-block w-24 border-b-2 border-blue-500 mx-1"></span>');
+            
+            const btnAudio = document.getElementById('m3-audio-btn');
+            btnAudio.onclick = () => readAloud(data.q.replace('_________', 'tempat kosong'));
+            
+            const optsContainer = document.getElementById('m3-options');
+            optsContainer.innerHTML = '';
+            
+            data.options.forEach((opt, idx) => {
+                const btn = document.createElement('button');
+                btn.className = 'w-full text-left bg-white border-2 border-slate-200 hover:border-blue-400 hover:bg-blue-50 p-4 rounded-xl font-bold text-lg text-slate-700 transition flex items-center gap-3';
+                btn.innerHTML = `<span class="bg-blue-100 text-blue-800 w-8 h-8 flex items-center justify-center rounded-full">${String.fromCharCode(65+idx)}</span> ${opt}`;
+                btn.onclick = () => checkMisi3(idx, btn);
+                optsContainer.appendChild(btn);
+            });
+            
+            const fb = document.getElementById('m3-feedback');
+            fb.textContent = '';
+            fb.className = 'mt-4 text-center font-bold text-xl min-h-[30px] opacity-0 transition-opacity';
+        }
+
+        function checkMisi3(selectedIndex, btnNode) {
+            const data = dataM3[gameState.m3.index];
+            const fb = document.getElementById('m3-feedback');
+            fb.style.opacity = '1';
+            
+            // disable all buttons
+            document.querySelectorAll('#m3-options button').forEach(b => b.disabled = true);
+
+            if (selectedIndex === data.answer) {
+                playSound('correct');
+                addScore(10);
+                btnNode.classList.add('bg-green-100', 'border-green-500');
+                fb.textContent = "⭐ Jawapan Tepat!";
+                fb.classList.add('text-green-600');
+                
+                // Fill in the blank visually
+                document.getElementById('m3-question').innerHTML = data.q.replace('_________', `<span class="text-green-600 border-b-2 border-green-500">${data.options[data.answer]}</span>`);
+                
+                setTimeout(() => {
+                    gameState.m3.index++;
+                    if(gameState.m3.index < dataM3.length) renderMisi3();
+                    else {
+                        fb.textContent = "🎉 Misi 3 Selesai!";
+                        setTimeout(() => completeMission(3), 1500);
+                    }
+                }, 2000);
+            } else {
+                playSound('wrong');
+                btnNode.classList.add('bg-red-100', 'border-red-500');
+                fb.textContent = "❌ Kurang tepat. Cuba fahami maksud ayat.";
+                fb.classList.add('text-red-600');
+                
+                setTimeout(() => {
+                    document.querySelectorAll('#m3-options button').forEach(b => {
+                        b.disabled = false;
+                        b.className = 'w-full text-left bg-white border-2 border-slate-200 hover:border-blue-400 hover:bg-blue-50 p-4 rounded-xl font-bold text-lg text-slate-700 transition flex items-center gap-3';
+                    });
+                    fb.style.opacity = '0';
+                }, 2500);
+            }
+        }
+
+        // --- MISI 4 (Bina Ayat) ---
+        function selectM4Word(word, btn) {
+            gameState.m4Word = word;
+            document.querySelectorAll('.m4-btn').forEach(b => b.classList.remove('bg-indigo-100', 'border-indigo-400', 'ring-2'));
+            btn.classList.add('bg-indigo-100', 'border-indigo-400', 'ring-2');
+            
+            document.getElementById('m4-input-area').classList.remove('hidden');
+            document.getElementById('m4-input-area').classList.add('flex');
+            document.getElementById('m4-selected-word').textContent = word;
+            document.getElementById('m4-textarea').value = '';
+            document.getElementById('m4-feedback').classList.add('hidden');
+            document.getElementById('btn-m4-next').classList.add('hidden');
+        }
+
+        function checkMisi4() {
+            const text = document.getElementById('m4-textarea').value.trim().toLowerCase();
+            const fb = document.getElementById('m4-feedback');
+            fb.classList.remove('hidden');
+            
+            if (text.length < 5) {
+                fb.textContent = "⚠️ Sila bina ayat yang lengkap.";
+                fb.className = "mt-4 text-center font-bold text-orange-500";
+                return;
+            }
+            
+            if (text.includes(gameState.m4Word.toLowerCase())) {
+                playSound('correct');
+                addScore(15);
+                fb.textContent = "⭐ Bagus! Anda berjaya membina ayat menggunakan kata majmuk tersebut.";
+                fb.className = "mt-4 text-center font-bold text-green-600 bg-green-50 p-3 rounded-xl";
+                document.getElementById('btn-m4-next').classList.remove('hidden');
+                document.getElementById('m4-textarea').disabled = true;
+            } else {
+                playSound('wrong');
+                fb.textContent = `❌ Ayat anda mesti mengandungi perkataan "${gameState.m4Word}".`;
+                fb.className = "mt-4 text-center font-bold text-red-500 bg-red-50 p-3 rounded-xl";
+            }
+        }
+
+        // --- BOSS (Slogan) ---
+        function limitBossSelection(checkbox) {
+            const checked = document.querySelectorAll('#boss-words input:checked');
+            if (checked.length > 2) {
+                checkbox.checked = false;
+                alert('Maksimum DUA kata majmuk sahaja.'); // Fallback alert if custom UI not desired, but let's use UI
+            }
+            
+            // Visual update
+            document.querySelectorAll('.boss-word').forEach(label => {
+                if(label.querySelector('input').checked) {
+                    label.classList.add('bg-red-100', 'border-red-400');
+                } else {
+                    label.classList.remove('bg-red-100', 'border-red-400');
+                }
+            });
+        }
+
+        function checkBoss() {
+            const checked = document.querySelectorAll('#boss-words input:checked');
+            const slogan = document.getElementById('boss-slogan').value.trim().toLowerCase();
+            const reason = document.getElementById('boss-reason').value.trim();
+            const fb = document.getElementById('boss-feedback');
+            fb.classList.remove('hidden');
+
+            if (checked.length !== 2) {
+                fb.textContent = "⚠️ Sila pilih tepat DUA kata majmuk.";
+                fb.className = "font-bold text-center text-orange-600 bg-orange-50 w-full p-4 rounded-xl";
+                return;
+            }
+            if (slogan.length < 5 || reason.length < 5) {
+                fb.textContent = "⚠️ Sila lengkapkan slogan dan sebab anda.";
+                fb.className = "font-bold text-center text-orange-600 bg-orange-50 w-full p-4 rounded-xl";
+                return;
+            }
+
+            // Check if selected words are in slogan
+            const words = Array.from(checked).map(c => c.value.toLowerCase());
+            let hasWords = words.some(w => slogan.includes(w));
+
+            if (hasWords) {
+                playSound('win');
+                addScore(30); // 20 boss + 10 bonus
+                fb.textContent = "🔥 TAHNIAH EJEN! Slogan yang sangat kreatif dan tepat. Sekolah selamat!";
+                fb.className = "font-bold text-center text-white bg-green-500 w-full p-4 rounded-xl shadow-lg";
+                document.getElementById('btn-boss-next').classList.remove('hidden');
+                
+                // Disable inputs
+                document.querySelectorAll('#boss-words input').forEach(i => i.disabled = true);
+                document.getElementById('boss-slogan').disabled = true;
+                document.getElementById('boss-reason').disabled = true;
+            } else {
+                playSound('wrong');
+                fb.textContent = "❌ Slogan anda mestilah mengandungi kata majmuk yang telah dipilih di atas.";
+                fb.className = "font-bold text-center text-red-600 bg-red-50 w-full p-4 rounded-xl";
+            }
+        }
+
+        // --- RESULTS ---
+        function showResults() {
+            document.getElementById('final-score').textContent = gameState.score;
+            const titleEl = document.getElementById('result-title');
+            const badgeEl = document.getElementById('result-badge');
+            const retryBtn = document.getElementById('btn-retry');
+            
+            // Generate confetti
+            for(let i=0; i<50; i++) {
+                const conf = document.createElement('div');
+                conf.className = 'confetti';
+                conf.style.left = Math.random() * 100 + 'vw';
+                conf.style.backgroundColor = ['#f00', '#0f0', '#00f', '#ff0', '#f0f'][Math.floor(Math.random()*5)];
+                conf.style.animationDuration = (Math.random() * 3 + 2) + 's';
+                document.getElementById('page-10').appendChild(conf);
+                setTimeout(() => conf.remove(), 5000);
+            }
+
+            // Approx max score: M1(60) + M2(80) + M3(50) + M4(15) + Boss(30) = 235
+            // Let's use percentage based on ~200 for easier tiers
+            const pct = (gameState.score / 200) * 100;
+
+            if (pct >= 80) {
+                titleEl.textContent = "EJEN BAHASA CEMERLANG!";
+                badgeEl.textContent = "🏆";
+                retryBtn.classList.add('hidden');
+                playSound('win');
+            } else if (pct >= 50) {
+                titleEl.textContent = "MISI HAMPIR SELESAI!";
+                badgeEl.textContent = "⭐";
+                retryBtn.classList.remove('hidden');
+            } else {
+                titleEl.textContent = "AYUH CUBA LAGI!";
+                badgeEl.textContent = "💡";
+                retryBtn.classList.remove('hidden');
+            }
+        }
+
+        function resetGame(targetPage) {
+            gameState.score = 0;
+            if(targetPage === 1) {
+                gameState.missionsUnlocked = [true, false, false, false];
+                // Reset inputs for M4 and Boss
+                document.getElementById('m4-textarea').value = '';
+                document.getElementById('m4-textarea').disabled = false;
+                document.getElementById('boss-slogan').value = '';
+                document.getElementById('boss-slogan').disabled = false;
+                document.getElementById('boss-reason').value = '';
+                document.getElementById('boss-reason').disabled = false;
+                document.querySelectorAll('#boss-words input').forEach(i => {
+                    i.checked = false;
+                    i.disabled = false;
+                });
+                document.querySelectorAll('.boss-word').forEach(l => l.classList.remove('bg-red-100', 'border-red-400'));
+                
+                document.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked = false); // clear reflection
+            }
+            document.getElementById('global-score').textContent = '0';
+            navTo(targetPage);
+        }
+
+        // --- INIT ---
+        window.onload = () => {
+            // Force reset on load just in case
+            resetGame(1);
+        };
+    </script>
+</body>
+</html>
